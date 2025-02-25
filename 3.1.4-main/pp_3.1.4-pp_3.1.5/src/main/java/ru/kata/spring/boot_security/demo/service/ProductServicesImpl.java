@@ -1,109 +1,135 @@
 package ru.kata.spring.boot_security.demo.service;
 
-
 import com.google.zxing.WriterException;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.kata.spring.boot_security.demo.model.Product;
+import ru.kata.spring.boot_security.demo.model.ProductFilter;
 import ru.kata.spring.boot_security.demo.repositories.ProductRepository;
+import ru.kata.spring.boot_security.demo.util.BarcodeGenerator;
 
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
-import java.util.regex.Pattern;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
+@Service
 public class ProductServicesImpl implements ProductServices {
-	private ProductRepository productRepository;
-	
-	
-	public ProductServicesImpl(ProductRepository productRepository) {
+	private final ProductRepository productRepository;
+	private final BarcodeGenerator barcodeGenerator;
+
+	public ProductServicesImpl(ProductRepository productRepository, BarcodeGenerator barcodeGenerator) {
 		this.productRepository = productRepository;
-		
+		this.barcodeGenerator = barcodeGenerator;
 	}
-	
+
 	@Override
 	@Transactional
 	public void addProduct(Product product) {
 		productRepository.save(product);
 	}
-	
+
 	@Override
+	@Transactional
 	public void updateProduct(Product product) {
 		productRepository.save(product);
 	}
-	
+
 	@Override
-	public void deleteProduct(Product product) {
-		productRepository.save(product);
+	@Transactional
+	public void deleteProduct(Long id) {
+		productRepository.deleteById(id);
 	}
-	
+
 	@Override
-	public List<Product> getProductByArticleWb(String articleWb) {
-		List<Product> products = productRepository.findAll();
-		String regex = ".*" + Pattern.quote(articleWb) + ".*";
-		
-		return products.stream().filter(product -> product.getName().matches(regex)).collect(Collectors.toList());
+	public Optional<Product> findById(Long id) {
+		return productRepository.findById(id);
 	}
-	
+
 	@Override
-	public List<Product> getProductByName(String name) {
-		List<Product> products = productRepository.findAll();
-		String regex = ".*" + Pattern.quote(name) + ".*";
-		
-		return products.stream().filter(product -> product.getName().matches(regex)).collect(Collectors.toList());
+	public List<Product> getAllProducts() {
+		return productRepository.findAll();
 	}
-	
+
 	@Override
-	public List<Product> getProductByPrice(BigDecimal price1, BigDecimal price2) {
-		List<Product> products = productRepository.findAll();
-		
-		return products.stream().filter(product -> product.getPrice().compareTo(price1) >= 0 && product.getPrice().compareTo(price2) <= 0).collect(Collectors.toList());
+	public byte[] generateBarcode(Long productId) throws IOException, WriterException {
+		Optional<Product> productOpt = productRepository.findById(productId);
+		if (productOpt.isPresent()) {
+			// Здесь используется, например, поле articleWb как значение штрих-кода
+			return barcodeGenerator.generateBarcodePng(Collections.singletonList(productOpt.get().getArticleWb()));
+		}
+		throw new IllegalArgumentException("Product not found");
 	}
-	
+
 	@Override
-	public List<Product> getProductByCategory(List<String> category) {
-		if (category == null || category.isEmpty()) return Collections.emptyList();
-		List<Product> products = productRepository.findAll();
-		
-		return products.stream()
-				.filter(product -> category.stream().anyMatch(c -> product.getCategory().contains(c)))
+	public List<Product> findByCategory(String category) {
+		return productRepository.findAll().stream()
+				.filter(product -> product.getCategory() != null && product.getCategory().equalsIgnoreCase(category))
 				.collect(Collectors.toList());
 	}
-	
+
 	@Override
-	public List<Product> getProductByBrand(List<String> brand) {
-		if (brand == null || brand.isEmpty()) return Collections.emptyList();
-		List<Product> products = productRepository.findAll();
-		
-		return products.stream()
-				.filter(product -> brand.stream().anyMatch(b -> product.getBrand().contains(b)))
+	public List<Product> findByBrand(String brand) {
+		return productRepository.findAll().stream()
+				.filter(product -> product.getBrand() != null && product.getBrand().equalsIgnoreCase(brand))
 				.collect(Collectors.toList());
 	}
-	
+
 	@Override
-	public List<Product> getProductByColor(List<String> color) {
-		if (color == null || color.isEmpty()) return Collections.emptyList();
-		List<Product> products = productRepository.findAll();
-		
-		return products.stream()
-				.filter(product -> color.stream().anyMatch(c -> product.getColor().contains(c)))
+	public List<Product> findByPriceRange(BigDecimal minPrice, BigDecimal maxPrice) {
+		return productRepository.findAll().stream()
+				.filter(product -> product.getPrice() != null &&
+						product.getPrice().compareTo(minPrice) >= 0 &&
+						product.getPrice().compareTo(maxPrice) <= 0)
 				.collect(Collectors.toList());
 	}
-	
+
 	@Override
-	public List<Product> getProductBySize(List<String> size) {
-		if (size == null || size.isEmpty()) return Collections.emptyList();
-		List<Product> products = productRepository.findAll();
-		
-		return products.stream()
-				.filter(product -> size.stream().anyMatch(s -> product.getSizes().contains(s)))
+	public List<Product> findByColor(String color) {
+		return productRepository.findAll().stream()
+				.filter(product -> product.getColor() != null && product.getColor().equalsIgnoreCase(color))
 				.collect(Collectors.toList());
 	}
-	
+
 	@Override
-	public byte[] printBarcodes(List<Product> products, List<String> fieldsToPrint) throws IOException, WriterException {
-		return null;
+	public List<Product> findBySize(String size) {
+		return productRepository.findAll().stream()
+				.filter(product -> product.getSizes() != null && product.getSizes().contains(size))
+				.collect(Collectors.toList());
 	}
-	
+
+	@Override
+	public List<Product> findByFilters(ProductFilter filter) {
+		return productRepository.findAll().stream()
+				.filter(product -> {
+					boolean matches = true;
+					if (filter.getCategory() != null && !filter.getCategory().isEmpty()) {
+						matches &= product.getCategory() != null &&
+								product.getCategory().equalsIgnoreCase(filter.getCategory());
+					}
+					if (filter.getBrand() != null && !filter.getBrand().isEmpty()) {
+						matches &= product.getBrand() != null &&
+								product.getBrand().equalsIgnoreCase(filter.getBrand());
+					}
+					if (filter.getMinPrice() != null) {
+						matches &= product.getPrice() != null &&
+								product.getPrice().compareTo(filter.getMinPrice()) >= 0;
+					}
+					if (filter.getMaxPrice() != null) {
+						matches &= product.getPrice() != null &&
+								product.getPrice().compareTo(filter.getMaxPrice()) <= 0;
+					}
+					if (filter.getColor() != null && !filter.getColor().isEmpty()) {
+						matches &= product.getColor() != null &&
+								product.getColor().equalsIgnoreCase(filter.getColor());
+					}
+					if (filter.getSize() != null && !filter.getSize().isEmpty()) {
+						matches &= product.getSizes() != null && product.getSizes().contains(filter.getSize());
+					}
+					return matches;
+				})
+				.collect(Collectors.toList());
+	}
 }

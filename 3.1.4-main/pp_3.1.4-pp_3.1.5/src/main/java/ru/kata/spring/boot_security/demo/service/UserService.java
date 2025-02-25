@@ -21,6 +21,7 @@ public interface UserService extends UserDetailsService {
 	User showUser(long id);
 	
 	Optional<User> findByEmail(String username);
+	Optional<User> findById(long id);
 	
 	@Override
 	UserDetails loadUserByUsername(String username) throws UsernameNotFoundException;

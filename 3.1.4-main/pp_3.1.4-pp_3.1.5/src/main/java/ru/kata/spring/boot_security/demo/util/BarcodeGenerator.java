@@ -4,13 +4,14 @@ import com.google.zxing.BarcodeFormat;
 import com.google.zxing.WriterException;
 import com.google.zxing.common.BitMatrix;
 import com.google.zxing.oned.Code128Writer;
+import org.springframework.stereotype.Service;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
-
+@Service
 public class BarcodeGenerator {
 	
 	// Метод для генерации PNG изображения штрих-кода для каждого поля
